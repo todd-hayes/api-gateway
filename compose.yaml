@@ -1,0 +1,47 @@
+services:
+  api-gateway:
+    container_name: api-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: spring/api-gateway:1.0.0
+    ports:
+      - 8080:8080
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/api_gateway
+      - SPRING_DATASOURCE_USERNAME=api_gw_role
+      - SPRING_DATASOURCE_PASSWORD=dbpass
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    networks:
+      - spring-postgres
+  db:
+    container_name: db
+    image: postgres:16.1-alpine
+    restart: always
+    secrets:
+      - db-password
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - spring-postgres
+    environment:
+      POSTGRES_DB: api_gateway
+      POSTGRES_USER: api_gw_role
+      POSTGRES_PASSWORD_FILE: /run/secrets/db-password
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d api_gateway -U api_gw_role" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    expose:
+      - 5433:5432
+volumes:
+  db-data:
+secrets:
+  db-password:
+    file: db/password.txt
+networks:
+  spring-postgres:
